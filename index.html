@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ecosystem Architect</title>
+<style>
+:root {
+  --primary: #2C5530;
+  --secondary: #8BB174;
+  --accent: #E6B34C;
+  --alert: #CF4307;
+  --bg: #F5F7F2;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+body {
+  font-family: system-ui;
+  background: var(--bg);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#game {
+  display: grid;
+  grid-template-columns: 70% 30%;
+  height: 100vh;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+#grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  background: white;
+  padding: 8px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.cell {
+  aspect-ratio: 1;
+  background: var(--bg);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.cell:hover {
+  background: var(--secondary);
+}
+
+#controls {
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.species-btn {
+  padding: 0.5rem;
+  background: var(--secondary);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.species-btn:hover {
+  background: var(--primary);
+  color: white;
+}
+
+#status {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.menu {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1rem;
+  color: white;
+}
+
+.menu button {
+  padding: 1rem 2rem;
+  font-size: 1.2rem;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  #game {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="grid"></div>
+  <div id="controls">
+    <h2>Species</h2>
+    <button class="species-btn" data-type="plant">🌿 Plant</button>
+    <button class="species-btn" data-type="herbivore">🦌 Herbivore</button>
+    <button class="species-btn" data-type="carnivore">🐯 Carnivore</button>
+    <button class="species-btn" data-type="decomposer">🍄 Decomposer</button>
+  </div>
+</div>
+<div id="status">Score: 0 | Level: 1</div>
+
+<script>
+const Game = (function() {
+  const GRID_SIZE = 8;
+  let score = 0;
+  let level = 1;
+  let selectedSpecies = null;
+  let gameState = 'menu';
+  
+  const species = {
+    plant: {
+      symbol: '🌿',
+      health: 100,
+      population: 100,
+      type: 'producer'
+    },
+    herbivore: {
+      symbol: '🦌',
+      health: 100,
+      population: 50,
+      type: 'consumer'
+    },
+    carnivore: {
+      symbol: '🐯',
+      health: 100,
+      population: 25,
+      type: 'consumer'
+    },
+    decomposer: {
+      symbol: '🍄',
+      health: 100,
+      population: 75,
+      type: 'decomposer'
+    }
+  };
+
+  function initGrid() {
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    for(let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.index = i;
+      cell.addEventListener('click', handleCellClick);
+      grid.appendChild(cell);
+    }
+  }
+
+  function handleCellClick(e) {
+    if(!selectedSpecies) return;
+    const cell = e.target;
+    if(cell.innerHTML) return;
+    
+    cell.innerHTML = species[selectedSpecies].symbol;
+    cell.dataset.type = selectedSpecies;
+    updateEcosystem();
+  }
+
+  function updateEcosystem() {
+    // Simple scoring based on species diversity
+    const placedSpecies = new Set();
+    document.querySelectorAll('.cell').forEach(cell => {
+      if(cell.dataset.type) {
+        placedSpecies.add(cell.dataset.type);
+      }
+    });
+    score = placedSpecies.size * 10;
+    document.getElementById('status').textContent = `Score: ${score} | Level: ${level}`;
+    
+    // Check win condition
+    if(score >= level * 30) {
+      levelComplete();
+    }
+  }
+
+  function levelComplete() {
+    level++;
+    showMessage(`Level ${level-1} Complete!`);
+    initGrid();
+  }
+
+  function showMessage(msg) {
+    const menu = document.createElement('div');
+    menu.className = 'menu';
+    menu.innerHTML = `
+      <h1>${msg}</h1>
+      <button onclick="this.parentElement.remove()">Continue</button>
+    `;
+    document.body.appendChild(menu);
+  }
+
+  function init() {
+    initGrid();
+    document.querySelectorAll('.species-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedSpecies = btn.dataset.type;
+        document.querySelectorAll('.species-btn').forEach(b => 
+          b.style.background = 'var(--secondary)');
+        btn.style.background = 'var(--primary)';
+        btn.style.color = 'white';
+      });
+    });
+
+    showMessage('Welcome to Ecosystem Architect!\nPlace species to create a balanced ecosystem.');
+  }
+
+  return { init };
+})();
+
+window.onload = Game.init;
+</script>
+</body>
+</html>

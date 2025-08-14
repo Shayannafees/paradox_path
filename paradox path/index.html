@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paradox Paths</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  background: #ECF0F1;
+  font-family: system-ui, sans-serif;
+  overflow: hidden;
+}
+#gameCanvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 100%;
+  max-height: 100vh;
+}
+.ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.menu {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(44, 62, 80, 0.9);
+  padding: 20px;
+  border-radius: 8px;
+  color: #ECF0F1;
+  text-align: center;
+  pointer-events: auto;
+}
+.btn {
+  background: #3498DB;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  margin: 5px;
+  border-radius: 4px;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.btn:hover { background: #2980B9; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div id="ui-overlay" class="ui-overlay"></div>
+<script>
+(function() {
+  const CANVAS_WIDTH = 800;
+  const CANVAS_HEIGHT = 600;
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const uiOverlay = document.getElementById('ui-overlay');
+  
+  let gameState = 'menu';
+  let currentLevel = 0;
+  let score = 0;
+  let modifications = 0;
+  let startTime = 0;
+  
+  // Timeline data structure
+  class Event {
+    constructor(id, desc, time, deps = [], effects = []) {
+      this.id = id;
+      this.description = desc;
+      this.timestamp = time;
+      this.dependencies = deps;
+      this.effects = effects;
+      this.isModified = false;
+      this.x = 0;
+      this.y = 0;
+    }
+  }
+  
+  class Timeline {
+    constructor(events = []) {
+      this.events = events;
+    }
+  }
+  
+  const levels = [
+    {
+      name: "Simple Causality",
+      timelines: [
+        new Timeline([
+          new Event(1, "Invention A", 0),
+          new Event(2, "Development B", 1, [1]),
+          new Event(3, "Result C", 2, [2])
+        ]),
+        new Timeline([
+          new Event(4, "Effect D", 1),
+          new Event(5, "Outcome E", 2, [4])
+        ])
+      ],
+      goal: "Ensure Result C occurs while maintaining Outcome E"
+    }
+  ];
+  
+  function init() {
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
+    
+    // Scale canvas for display
+    const scale = Math.min(
+      window.innerWidth / CANVAS_WIDTH,
+      window.innerHeight / CANVAS_HEIGHT
+    );
+    canvas.style.width = CANVAS_WIDTH * scale + 'px';
+    canvas.style.height = CANVAS_HEIGHT * scale + 'px';
+    
+    showMenu();
+  }
+  
+  function showMenu() {
+    uiOverlay.innerHTML = `
+      <div class="menu">
+        <h1>Paradox Paths</h1>
+        <p>Manipulate timelines without creating paradoxes</p>
+        <button class="btn" onclick="startGame()">Start Game</button>
+      </div>
+    `;
+  }
+  
+  function startGame() {
+    gameState = 'playing';
+    currentLevel = 0;
+    score = 1000;
+    modifications = 0;
+    startTime = Date.now();
+    uiOverlay.innerHTML = '';
+    
+    requestAnimationFrame(gameLoop);
+  }
+  
+  function drawTimeline(timeline, y) {
+    ctx.beginPath();
+    ctx.strokeStyle = '#3498DB';
+    ctx.lineWidth = 2;
+    ctx.moveTo(100, y);
+    ctx.lineTo(700, y);
+    ctx.stroke();
+    
+    timeline.events.forEach((event, i) => {
+      const x = 100 + (600 * (i / (timeline.events.length - 1)));
+      event.x = x;
+      event.y = y;
+      
+      ctx.beginPath();
+      ctx.fillStyle = event.isModified ? '#E74C3C' : '#2C3E50';
+      ctx.arc(x, y, 10, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+  
+  function drawLevel() {
+    ctx.fillStyle = '#ECF0F1';
+    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    const level = levels[currentLevel];
+    level.timelines.forEach((timeline, i) => {
+      drawTimeline(timeline, 150 + i * 100);
+    });
+    
+    // Draw UI
+    ctx.fillStyle = '#2C3E50';
+    ctx.font = '20px system-ui';
+    ctx.fillText(`Score: ${score}`, 20, 30);
+    ctx.fillText(`Modifications: ${modifications}`, 20, 60);
+  }
+  
+  function gameLoop() {
+    if (gameState === 'playing') {
+      drawLevel();
+      requestAnimationFrame(gameLoop);
+    }
+  }
+  
+  // Event handlers
+  canvas.addEventListener('click', (e) => {
+    if (gameState !== 'playing') return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const scale = canvas.width / rect.width;
+    const x = (e.clientX - rect.left) * scale;
+    const y = (e.clientY - rect.top) * scale;
+    
+    // Check for event clicks
+    levels[currentLevel].timelines.forEach(timeline => {
+      timeline.events.forEach(event => {
+        const dx = x - event.x;
+        const dy = y - event.y;
+        if (dx * dx + dy * dy < 100) {
+          event.isModified = !event.isModified;
+          modifications++;
+          score = Math.max(0, score - 100);
+        }
+      });
+    });
+  });
+  
+  window.startGame = startGame;
+  init();
+})();
+</script>
+</body>
+</html>
